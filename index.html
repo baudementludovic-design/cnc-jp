@@ -523,8 +523,8 @@ function renderGamePlayer(p){
 function game(g){
  let sc=(g.scoreA==null&&g.scoreB==null)?"—":(()=>{
   const a=Number(g.scoreA),b=Number(g.scoreB);
-  const aWins=!g.stopped&&g.scoreA!=null&&g.scoreB!=null&&Number.isFinite(a)&&Number.isFinite(b)&&a>=11&&a>b;
-  const bWins=!g.stopped&&g.scoreA!=null&&g.scoreB!=null&&Number.isFinite(a)&&Number.isFinite(b)&&b>=11&&b>a;
+  const aWins=g.scoreA!=null&&g.scoreB!=null&&Number.isFinite(a)&&Number.isFinite(b)&&a>b;
+  const bWins=g.scoreA!=null&&g.scoreB!=null&&Number.isFinite(a)&&Number.isFinite(b)&&b>a;
   return `<span class="${aWins?'game-winning-score':''}">${esc(g.scoreA??'—')}</span> – <span class="${bWins?'game-winning-score':''}">${esc(g.scoreB??'—')}</span>`;
  })();
  const pa=(g.playersA||[]).map(renderGamePlayer).join("") || '<span class="waiting">Joueurs en attente</span>';
