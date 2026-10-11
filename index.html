@@ -528,8 +528,8 @@ function renderGamePlayer(p){
 function game(g){
  let sc=(g.scoreA==null&&g.scoreB==null)?"—":(()=>{
   const a=Number(g.scoreA),b=Number(g.scoreB);
-  const aWins=g.scoreA!=null&&g.scoreB!=null&&Number.isFinite(a)&&Number.isFinite(b)&&a>b;
-  const bWins=g.scoreA!=null&&g.scoreB!=null&&Number.isFinite(a)&&Number.isFinite(b)&&b>a;
+  const aWins=g.scoreA!=null&&g.scoreB!=null&&Number.isFinite(a)&&Number.isFinite(b)&&a>b&&(!(active===5&&finalClockIsTicking())||a>=13);
+  const bWins=g.scoreA!=null&&g.scoreB!=null&&Number.isFinite(a)&&Number.isFinite(b)&&b>a&&(!(active===5&&finalClockIsTicking())||b>=13);
   return `<span class="${aWins?'game-winning-score':''}">${esc(g.scoreA??'—')}</span> – <span class="${bWins?'game-winning-score':''}">${esc(g.scoreB??'—')}</span>`;
  })();
  const pa=(g.playersA||[]).map(renderGamePlayer).join("") || '<span class="waiting">Joueurs en attente</span>';
@@ -559,8 +559,47 @@ function ranking(g){
 function groupView(g){
  return ranking(g)+g.rounds.map(rr=>`<div class="round"><h2>${rr.round}<sup>${rr.round===1?"er":"e"}</sup> tour</h2><span class="tag">2 rencontres</span></div><div class="grid">${rr.matches.map(match).join("")}</div>`).join("");
 }
+// Pendant le chronomètre, les parties restent en direct ; seules les parties à 13 points valident les scores de rencontre.
+// Les totaux non encore validés conservent leur dernière valeur affichée.
+let lastVisibleFinalScores=null;
+function finalClockIsTicking(){
+ const c=clockInfo;
+ return !!(c&&c.running&&!c.paused&&(!c.endAt||c.endAt>Date.now()+clockOffset));
+}
+function finalsScoresForDisplay(){
+ const live=data.finals;
+ if(!finalClockIsTicking()){
+  lastVisibleFinalScores=JSON.parse(JSON.stringify(live));
+  return live;
+ }
+ const result=JSON.parse(JSON.stringify(live));
+ for(const stage of ['quarters','semis','final']){
+  (result[stage]||[]).forEach((m,i)=>{
+   const old=lastVisibleFinalScores?.[stage]?.[i];
+   const triplets=(m.games||[]).filter(g=>/triplette/i.test(g.label||''));
+   const tripletsFilled=triplets.length>0&&triplets.every(g=>(g.playersA||[]).some(p=>String(p||'').trim())&&(g.playersB||[]).some(p=>String(p||'').trim()));
+   // Une rencontre déjà terminée (12 points minimum et triplettes renseignées)
+   // conserve les totaux officiels transmis par Google Sheets.
+   if(tripletsFilled&&(Number(m.totalA)>=12||Number(m.totalB)>=12))return;
+   let totalA=0,totalB=0;
+   (m.games||[]).forEach(g=>{
+    if(g.stopped||g.scoreA==null||g.scoreB==null)return;
+    const a=Number(g.scoreA),b=Number(g.scoreB);
+    if(!Number.isFinite(a)||!Number.isFinite(b)||a===b||Math.max(a,b)<13)return;
+    const pts=/triplette/i.test(g.label||'')?6:4;
+    if(a>b)totalA+=pts;else totalB+=pts;
+   });
+   m.totalA=totalA;
+   m.totalB=totalB;
+   // Une rencontre en cours n'annonce pas de vainqueur sur la base
+   // de scores provisoires ou de parties non achevées.
+   m.winner=null;m.finished=false;m.draw=false;m.tieBreakWinner=null;
+  });
+ }
+ return result;
+}
 function finals(){
- const f=data.finals;
+ const f=finalsScoresForDisplay();
  return `<div class="finals-shell">
    <div class="finals-hero">
      <div class="finals-eyebrow">CNC Jeu Provençal</div>
